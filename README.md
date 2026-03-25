@@ -1,6 +1,8 @@
 # Cold email outreach dashboard
 
-Paste lead details, generate a personalized cold email with **Groq** (Llama 3.3 70B), send mail, and track status in a **React** dashboard. **Local:** data in `backend/logs.json`. **Vercel:** data in **Upstash Redis** (see below).
+Paste lead details, generate a personalized cold email with **Groq** (Llama 3.3 70B), send mail, and track status in a **React** dashboard.
+
+**Leads storage:** With **`SUPABASE_URL`** + **`SUPABASE_SERVICE_ROLE_KEY`**, data lives in **Supabase** (`leads` table). If those are unset, the API falls back to **`backend/logs.json`** (fine for local-only dev).
 
 You can send through **Gmail** (your real `@gmail.com` address) or **Resend** (verified domain + webhooks).
 
@@ -8,10 +10,20 @@ You can send through **Gmail** (your real `@gmail.com` address) or **Resend** (v
 
 - **Frontend:** Vite + React + Tailwind (`frontend/`)
 - **Backend:** Express (`backend/app.js`); local entry `backend/index.js`; **Vercel** serverless entry `api/index.js`
-- **Gmail mode:** [Nodemailer](https://nodemailer.com/) + Google **App Password** (SMTP). **From** and **Reply-To** are your Gmail address. Replies only appear in Gmail; use the dashboard **Log reply** action to paste them into `logs.json`.
-- **Resend mode:** Resend API + optional webhooks for **opened / clicked / bounced / inbound reply**. Open/click tracking is configured in the Resend domain settings.
-- **Resume:** `RESUME_PUBLIC_URL` or `RESUME_FILE_PATH` (under `backend/`) plus optional `RESUME_FILENAME`.
+- **Gmail mode:** [Nodemailer](https://nodemailer.com/) + Google **App Password** (SMTP). Replies in Gmail; use **Log reply** on the dashboard to store text in Supabase / `logs.json`.
+- **Resend mode:** Resend API + optional webhooks for **opened / clicked / bounced / inbound reply**.
+- **Resume:** `RESUME_PUBLIC_URL` or `RESUME_FILE_PATH` plus optional `RESUME_FILENAME`.
 - **Webhooks (Resend only):** Verified with **Svix** using `RESEND_WEBHOOK_SECRET`.
+
+## Supabase setup
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor** and run the script in **`supabase/migrations/001_create_leads.sql`** (creates `public.leads` with RLS enabled; the **service role** bypasses RLS for server-side access).
+3. In **Project Settings → API**, copy:
+   - **Project URL** → `SUPABASE_URL`
+   - **service_role** `secret` key → `SUPABASE_SERVICE_ROLE_KEY` (backend / Vercel **only** — never expose in the browser or commit to git).
+
+4. Add those two variables to `backend/.env` locally and to **Vercel → Environment Variables** for production.
 
 ## Gmail-only setup
 
@@ -26,27 +38,23 @@ You can send through **Gmail** (your real `@gmail.com` address) or **Resend** (v
    GMAIL_DISPLAY_NAME=Amay Varghese
    ```
 
-4. Remove or comment out Resend variables if you are not using Resend. If both Gmail and Resend keys exist, set **`EMAIL_PROVIDER=gmail`** explicitly.
+4. If both Gmail and Resend keys exist, set **`EMAIL_PROVIDER=gmail`** explicitly when you want Gmail.
 
-5. You do **not** need a public tunnel or Resend webhooks for Gmail mode.
-
-6. When a lead replies, open the thread in Gmail, copy the text, and use **Log reply** on that row in the dashboard.
+5. When a lead replies, use **Log reply** on that row to paste the text into storage.
 
 ## Resend setup (optional)
 
-If `EMAIL_PROVIDER=resend` (or only Resend is configured), follow steps 5–8 from the original flow:
-
-1. Expose the API (e.g. `npx localtunnel --port 3001`).
-2. Register `https://<tunnel>/api/webhooks/resend` in Resend with the signing secret in `RESEND_WEBHOOK_SECRET`.
-3. Configure inbound + domain tracking as before.
+1. Expose the API (e.g. `npx localtunnel --port 3001`) or use your Vercel URL.
+2. Register `https://<host>/api/webhooks/resend` in Resend with `RESEND_WEBHOOK_SECRET`.
+3. Configure inbound + domain tracking as needed.
 
 ## Install & run (local)
 
-From the repo root (workspaces install everything):
+From the repo root:
 
 ```bash
 npm install
-cp .env.example backend/.env   # then edit backend/.env
+cp .env.example backend/.env   # then edit backend/.env (add Supabase + mail keys)
 ```
 
 ```bash
@@ -57,18 +65,15 @@ node backend/index.js
 cd frontend && npm run dev
 ```
 
-Vite proxies `/api` to port **3001**. Production UI build from root: `npm run build` → `frontend/dist`.
+Vite proxies `/api` to port **3001**. Root build: `npm run build` → `frontend/dist`.
 
 ## Deploy on Vercel (one Git repo)
 
-1. Push this repo to GitHub/GitLab/Bitbucket.
-2. [Vercel](https://vercel.com) → **Add New Project** → import the repo. Leave the **root** as the repository root (no subdirectory).
-3. Vercel reads **`vercel.json`**: builds the frontend and serves **`api/index.js`** for all `/api/*` routes.
-4. **Storage (required on Vercel):** the filesystem is read-only. In the Vercel project open **Storage** → **Marketplace** → add **Upstash Redis** (or another Redis with REST). That injects **`UPSTASH_REDIS_REST_URL`** and **`UPSTASH_REDIS_REST_TOKEN`**. Without them, only **local** `logs.json` works; production writes need Redis.
-5. **Environment variables:** in the Vercel project → **Settings → Environment Variables**, add everything you use locally (`GROQ_API_KEY`, `EMAIL_PROVIDER`, Gmail or Resend vars, etc.). **Do not** rely on `backend/.env` on Vercel.
-6. **Resume attachments:** on Vercel use **`RESUME_PUBLIC_URL`** (HTTPS). Local file paths won’t exist on the server.
-7. **Resend webhooks:** use `https://<your-deployment>.vercel.app/api/webhooks/resend`.
-8. After deploy, open the production URL: the UI calls **`/api/...`** on the same origin, so you do **not** need `VITE_API_URL` unless the API is hosted elsewhere.
+1. Import the GitHub repo; **root** = repo root (see **`vercel.json`**).
+2. **Environment variables:** add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, mail settings, **`RESUME_PUBLIC_URL`**, etc.
+3. **No Redis required** — Supabase replaces the old Upstash/Redis option for lead storage.
+4. **Resend webhooks:** `https://<your-deployment>.vercel.app/api/webhooks/resend`.
+5. Same-origin UI → no `VITE_API_URL` needed unless the API is hosted elsewhere.
 
 ## API
 
@@ -76,13 +81,13 @@ Vite proxies `/api` to port **3001**. Production UI build from root: `npm run bu
 |--------|------|-------------|
 | `GET` | `/api/config` | `{ provider: 'gmail' \| 'resend', autoTracking: boolean }` |
 | `POST` | `/api/preview` | `{ name, company, role }` → Groq `{ subject, body }` |
-| `POST` | `/api/leads` | Send email (Gmail or Resend) and upsert lead |
+| `POST` | `/api/leads` | Send email and upsert lead |
 | `GET` | `/api/leads` | All leads |
-| `POST` | `/api/leads/:email/log-reply` | Body `{ replyContent }` — manual reply log (Gmail workflow) |
+| `POST` | `/api/leads/:email/log-reply` | Body `{ replyContent }` |
 | `DELETE` | `/api/leads/:email` | Remove lead |
 | `POST` | `/api/webhooks/resend` | Resend webhooks (Resend mode) |
 
 ## Notes
 
-- Gmail cannot expose Resend-style **open/click** events; those columns show **N/A** in Gmail mode.
-- `replyContent` / `replyContentFull` are filled from webhooks (Resend) or from **Log reply** (Gmail).
+- Gmail mode does not auto-track opens/clicks; those columns show **N/A** unless you use Resend.
+- You can inspect and edit leads in the **Supabase Table Editor** when using Supabase.
