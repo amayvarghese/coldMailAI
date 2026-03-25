@@ -71,9 +71,10 @@ Vite proxies `/api` to port **3001**. Root build: `npm run build` → `frontend/
 
 1. Import the GitHub repo; **root** = repo root (see **`vercel.json`**).
 2. **Environment variables:** add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, mail settings, **`RESUME_PUBLIC_URL`**, etc.
-3. **No Redis required** — Supabase replaces the old Upstash/Redis option for lead storage.
-4. **Resend webhooks:** `https://<your-deployment>.vercel.app/api/webhooks/resend`.
-5. Same-origin UI → no `VITE_API_URL` needed unless the API is hosted elsewhere.
+3. **No Vercel add-on storage** — you do **not** need Vercel Blob, KV, or Postgres; lead data is stored in **Supabase** only.
+4. **No Redis** — Supabase replaced the old Upstash/Redis option for lead storage.
+5. **Resend webhooks:** `https://<your-deployment>.vercel.app/api/webhooks/resend`.
+6. Same-origin UI → no `VITE_API_URL` needed unless the API is hosted elsewhere.
 
 ## API
 
