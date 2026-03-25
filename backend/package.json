@@ -15,7 +15,6 @@
     "jsonrepair": "^3.13.3",
     "nodemailer": "^6.9.16",
     "resend": "^4.0.1",
-    "serverless-http": "^3.2.0",
     "svix": "^1.40.0"
   }
 }

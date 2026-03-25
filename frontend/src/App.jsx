@@ -48,6 +48,7 @@ export default function App() {
   const [logReplyText, setLogReplyText] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
   const [capabilities, setCapabilities] = useState(null);
+  const [mailConfigError, setMailConfigError] = useState(null);
 
   const loadLeads = useCallback(async () => {
     try {
@@ -66,13 +67,25 @@ export default function App() {
       const r = await api('/api/config');
       if (r.ok) {
         const data = await r.json();
+        setMailConfigError(null);
         setCapabilities({
           provider: data.provider || 'resend',
           autoTracking: Boolean(data.autoTracking),
         });
+        return;
       }
+      const text = await r.text();
+      console.error('GET /api/config failed', r.status, text);
+      setCapabilities({ provider: 'resend', autoTracking: false });
+      setMailConfigError(
+        `Could not load mail settings (HTTP ${r.status}). Open /api/config on this site or check Vercel → Functions → logs.`
+      );
     } catch (e) {
       console.error(e);
+      setCapabilities({ provider: 'resend', autoTracking: false });
+      setMailConfigError(
+        'Could not reach the API. If you set VITE_API_URL in Vercel, it must match this deployment’s origin with no trailing slash.'
+      );
     }
   }, []);
 
@@ -190,6 +203,9 @@ export default function App() {
                   ? 'Groq draft → Gmail send — check Gmail for replies; log them here with “Log reply”.'
                   : 'Groq draft → Resend send → live opens, clicks, and replies'}
             </p>
+            {mailConfigError && (
+              <p className="mt-2 text-sm text-amber-200/90">{mailConfigError}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {lastRefresh && (

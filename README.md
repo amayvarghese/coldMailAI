@@ -74,7 +74,8 @@ Vite proxies `/api` to port **3001**. Root build: `npm run build` → `frontend/
 3. **No Vercel add-on storage** — you do **not** need Vercel Blob, KV, or Postgres; lead data is stored in **Supabase** only.
 4. **No Redis** — Supabase replaced the old Upstash/Redis option for lead storage.
 5. **Resend webhooks:** `https://<your-deployment>.vercel.app/api/webhooks/resend`.
-6. Same-origin UI → no `VITE_API_URL` needed unless the API is hosted elsewhere.
+6. Same-origin UI → leave **`VITE_API_URL` unset** unless the API is on another origin (must be exact base URL, no trailing slash). Wrong values cause endless “Loading mail settings…” until redeploy.
+7. **Sanity check:** open `https://<deployment>.vercel.app/api/config` in the browser — expect JSON with `provider` and `autoTracking`.
 
 ## API
 
